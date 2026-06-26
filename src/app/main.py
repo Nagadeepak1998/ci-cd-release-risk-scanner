@@ -1,0 +1,34 @@
+from __future__ import annotations
+
+from fastapi import FastAPI, Response
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+
+from app.metrics import LATENCY, LATEST_SCORE, SCANS
+from release_risk_scanner.models import DeployContext, RiskReport
+from release_risk_scanner.scanner import scan_release
+
+app = FastAPI(
+    title="CI/CD Release Risk Scanner",
+    version="0.1.0",
+    description="Scores release risk from CI/CD evidence and returns a deploy gate decision.",
+)
+
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@app.post("/scan", response_model=RiskReport)
+def scan(context: DeployContext) -> RiskReport:
+    with LATENCY.time():
+        report = scan_release(context)
+    SCANS.labels(decision=report.decision).inc()
+    LATEST_SCORE.set(report.score)
+    return report
+
+
+@app.get("/metrics")
+def metrics() -> Response:
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+

@@ -1,0 +1,21 @@
+{
+  "service": "catalog-api",
+  "environment": "production",
+  "version": "2026.06.26-2",
+  "changed_files": [
+    "src/catalog/search.py",
+    "tests/test_search.py"
+  ],
+  "test_summary": {
+    "passed": 208,
+    "failed": 0,
+    "skipped": 1,
+    "coverage_delta": 0.7
+  },
+  "dependency_updates": [],
+  "incidents_last_7d": 0,
+  "rollback_count_30d": 0,
+  "changed_lines": 180,
+  "approvers": ["platform-lead", "service-owner"]
+}
+

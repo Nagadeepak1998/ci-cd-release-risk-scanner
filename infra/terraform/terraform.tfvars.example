@@ -1,0 +1,4 @@
+aws_region         = "us-west-2"
+repository_name    = "ci-cd-release-risk-scanner"
+log_retention_days = 14
+
