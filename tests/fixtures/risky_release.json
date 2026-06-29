@@ -18,6 +18,9 @@
   "incidents_last_7d": 2,
   "rollback_count_30d": 1,
   "changed_lines": 1240,
-  "approvers": ["platform-lead"]
+  "approvers": ["platform-lead"],
+  "rollback_plan_url": null,
+  "monitoring_dashboard_url": null,
+  "canary_enabled": false,
+  "deployment_window": "off_hours"
 }
-

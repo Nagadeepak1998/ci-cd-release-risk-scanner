@@ -16,6 +16,9 @@
   "incidents_last_7d": 0,
   "rollback_count_30d": 0,
   "changed_lines": 180,
-  "approvers": ["platform-lead", "service-owner"]
+  "approvers": ["platform-lead", "service-owner"],
+  "rollback_plan_url": "https://runbooks.example.local/catalog-api/rollback",
+  "monitoring_dashboard_url": "https://grafana.example.local/d/catalog-api",
+  "canary_enabled": true,
+  "deployment_window": "business_hours"
 }
-

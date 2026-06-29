@@ -1,4 +1,4 @@
-.PHONY: setup lint test sample sample-markdown run smoke docker-build docker-run clean
+.PHONY: setup lint test sample sample-markdown sample-evidence run smoke docker-build docker-run clean
 
 setup:
 	python3 -m venv .venv
@@ -12,11 +12,15 @@ test:
 	.venv/bin/pytest
 
 sample:
-	.venv/bin/release-risk tests/fixtures/risky_release.json --output reports/risky-release.json || test $$? -eq 2
-	.venv/bin/release-risk tests/fixtures/safe_release.json --output reports/safe-release.json
+	PYTHONPATH=src .venv/bin/python -m release_risk_scanner.cli tests/fixtures/risky_release.json --output reports/risky-release.json || test $$? -eq 2
+	PYTHONPATH=src .venv/bin/python -m release_risk_scanner.cli tests/fixtures/safe_release.json --output reports/safe-release.json
 
 sample-markdown:
-	.venv/bin/release-risk tests/fixtures/risky_release.json --format markdown --output reports/risky-release.md || test $$? -eq 2
+	PYTHONPATH=src .venv/bin/python -m release_risk_scanner.cli tests/fixtures/risky_release.json --format markdown --output reports/risky-release.md || test $$? -eq 2
+
+sample-evidence:
+	PYTHONPATH=src .venv/bin/python -m release_risk_scanner.cli --evidence tests/fixtures/healthy_evidence.json --output reports/healthy-evidence.json
+	PYTHONPATH=src .venv/bin/python -m release_risk_scanner.cli --evidence tests/fixtures/rollback_evidence.json --format markdown --output reports/rollback-evidence.md --fail-on rollback || test $$? -eq 2
 
 run:
 	.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8080
@@ -32,4 +36,3 @@ docker-run:
 
 clean:
 	rm -rf .venv .pytest_cache .ruff_cache src/*.egg-info
-

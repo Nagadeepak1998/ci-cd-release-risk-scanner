@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from release_risk_scanner.io import load_context
-from release_risk_scanner.scanner import render_markdown, scan_release
+from release_risk_scanner.io import load_context, load_evidence_bundle
+from release_risk_scanner.scanner import evaluate_release_evidence, render_markdown, scan_release
 
 
 def test_risky_release_blocks_deploy() -> None:
@@ -10,6 +10,9 @@ def test_risky_release_blocks_deploy() -> None:
     assert report.decision == "block"
     assert report.score == 100
     assert any(finding.rule_id == "failed-tests" for finding in report.findings)
+    assert any(finding.rule_id == "missing-rollback-plan" for finding in report.findings)
+    assert any(finding.rule_id == "off-hours-without-canary" for finding in report.findings)
+    assert any(check.status == "fail" for check in report.readiness_checks)
     assert any("Do not deploy" in action for action in report.required_actions)
 
 
@@ -19,6 +22,7 @@ def test_safe_release_approves_deploy() -> None:
     assert report.decision == "approve"
     assert report.score == 0
     assert len(report.findings) == 0
+    assert all(check.status == "pass" for check in report.readiness_checks)
 
 
 def test_markdown_report_contains_gate_context() -> None:
@@ -27,5 +31,30 @@ def test_markdown_report_contains_gate_context() -> None:
 
     assert "# Release Risk Report: checkout-api" in markdown
     assert "Decision: `block`" in markdown
+    assert "## Deployment Readiness" in markdown
+    assert "rollback_plan" in markdown
     assert "failed-tests" in markdown
 
+
+def test_healthy_evidence_promotes_release() -> None:
+    report = evaluate_release_evidence(load_evidence_bundle(Path("tests/fixtures/healthy_evidence.json")))
+
+    assert report.decision == "promote"
+    assert report.evidence_score == 0
+
+
+def test_rollback_evidence_stops_release() -> None:
+    report = evaluate_release_evidence(load_evidence_bundle(Path("tests/fixtures/rollback_evidence.json")))
+
+    assert report.decision == "rollback"
+    assert report.evidence_score == 100
+    assert any(finding.rule_id == "error-budget-burn" for finding in report.findings)
+
+
+def test_evidence_markdown_contains_post_deploy_decision() -> None:
+    report = evaluate_release_evidence(load_evidence_bundle(Path("tests/fixtures/rollback_evidence.json")))
+    markdown = render_markdown(report)
+
+    assert "# Release Evidence Report: checkout-api" in markdown
+    assert "Decision: `rollback`" in markdown
+    assert "error-budget-burn" in markdown

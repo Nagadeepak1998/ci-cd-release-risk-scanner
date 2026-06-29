@@ -8,17 +8,22 @@ recent incidents, rollback history, dependency updates, and weak approvals.
 
 ## Solution
 
-This project builds a deterministic release gate that converts CI/CD evidence into a
-score and decision. The scanner returns `approve`, `manual_review`, or `block` with
-specific findings and required actions.
+This project builds deterministic release gates that convert CI/CD evidence into a
+score and decision. The pre-release scanner returns `approve`, `manual_review`, or
+`block`; the post-deploy evidence review returns `promote`, `watch`, or `rollback`.
+Both paths include specific findings, deployment readiness checks, and required actions.
 
 ## Implementation
 
 - Shared scanner engine in `src/release_risk_scanner/scanner.py`
 - CLI entry point for CI usage
-- FastAPI service with `/health`, `/scan`, and `/metrics`
-- Prometheus metrics for scan count, latest score, and latency
+- FastAPI service with `/health`, `/scan`, `/evidence`, and `/metrics`
+- Prometheus metrics for scan count, evidence review count, latest scores, and latency
 - JSON and Markdown report output
+- Deployment readiness checks for rollback plans, monitoring dashboards, and canary rollout
+  posture
+- Post-deploy evidence scoring for error budget burn, error-rate regression, latency
+  regression, synthetic check failures, rollback events, and firing alerts
 - Docker image and Compose configuration
 - Kubernetes deployment with probes, resource limits, and scrape annotations
 - Terraform skeleton for ECR and CloudWatch logs
@@ -28,17 +33,26 @@ specific findings and required actions.
 
 The risky fixture intentionally blocks deployment because it includes failing tests,
 security/config changes, a database migration, infrastructure changes, dependency updates,
-recent incidents, rollback history, a large change set, and missing production approval.
+recent incidents, rollback history, a large change set, missing production approval,
+missing rollback and monitoring references, and an off-hours rollout without canary.
 
 The safe fixture approves deployment because tests pass, the change set is small, recent
-incident history is clean, and production approvals are present.
+incident history is clean, production approvals are present, and rollback, monitoring, and
+canary readiness checks pass.
+
+The healthy evidence fixture promotes deployment after the evidence window because burn
+rate, error rate, latency, synthetics, alerts, and rollback events stay within threshold.
+The rollback evidence fixture stops promotion because the release was already blocked and
+post-deploy evidence shows burn-rate, error-rate, latency, synthetic, alert, and rollback
+signals.
 
 ## Recruiter-Relevant Signals
 
 - CI/CD release gate design
 - Production deployment risk analysis
+- Release readiness evidence that maps to real deployment review conversations
+- Post-deploy evidence review that maps to canary promotion and rollback decisions
 - Python API and CLI implementation
 - Test automation and deterministic fixtures
 - Docker, Kubernetes, Terraform, and observability fundamentals
 - Clear operational writing and release-management judgment
-

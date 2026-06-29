@@ -16,6 +16,16 @@ def test_api_scan_returns_release_decision() -> None:
     assert response.json()["decision"] == "block"
 
 
+def test_api_evidence_returns_rollback_decision() -> None:
+    client = TestClient(app)
+    payload = json.loads(Path("tests/fixtures/rollback_evidence.json").read_text())
+
+    response = client.post("/evidence", json=payload)
+
+    assert response.status_code == 200
+    assert response.json()["decision"] == "rollback"
+
+
 def test_metrics_endpoint() -> None:
     client = TestClient(app)
 
@@ -23,4 +33,3 @@ def test_metrics_endpoint() -> None:
 
     assert response.status_code == 200
     assert "release_risk_scans_total" in response.text
-

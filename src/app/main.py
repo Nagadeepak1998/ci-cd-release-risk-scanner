@@ -3,9 +3,9 @@ from __future__ import annotations
 from fastapi import FastAPI, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
-from app.metrics import LATENCY, LATEST_SCORE, SCANS
-from release_risk_scanner.models import DeployContext, RiskReport
-from release_risk_scanner.scanner import scan_release
+from app.metrics import EVIDENCE_REVIEWS, LATENCY, LATEST_EVIDENCE_SCORE, LATEST_SCORE, SCANS
+from release_risk_scanner.models import DeployContext, EvidenceReport, ReleaseEvidenceBundle, RiskReport
+from release_risk_scanner.scanner import evaluate_release_evidence, scan_release
 
 app = FastAPI(
     title="CI/CD Release Risk Scanner",
@@ -28,7 +28,15 @@ def scan(context: DeployContext) -> RiskReport:
     return report
 
 
+@app.post("/evidence", response_model=EvidenceReport)
+def evidence(bundle: ReleaseEvidenceBundle) -> EvidenceReport:
+    with LATENCY.time():
+        report = evaluate_release_evidence(bundle)
+    EVIDENCE_REVIEWS.labels(decision=report.decision).inc()
+    LATEST_EVIDENCE_SCORE.set(report.evidence_score)
+    return report
+
+
 @app.get("/metrics")
 def metrics() -> Response:
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
-
