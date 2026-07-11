@@ -10,6 +10,9 @@ from release_risk_scanner.models import (
     ReleaseEvidenceBundle,
     RiskFinding,
     RiskReport,
+    SupplyChainEvidence,
+    SupplyChainReport,
+    SupplyChainReview,
 )
 
 
@@ -66,7 +69,31 @@ def evaluate_release_evidence(bundle: ReleaseEvidenceBundle) -> EvidenceReport:
     )
 
 
-def render_markdown(report: RiskReport | EvidenceReport) -> str:
+def evaluate_supply_chain(review: SupplyChainReview) -> SupplyChainReport:
+    findings = _supply_chain_findings(review.evidence)
+    score = min(100, sum(finding.points for finding in findings))
+    decision = _decision(score)
+    if review.evidence.critical_vulnerabilities or not review.evidence.signature_verified:
+        decision = "block"
+    return SupplyChainReport(
+        service=review.release.service,
+        environment=review.release.environment,
+        version=review.release.version,
+        artifact_digest=review.evidence.artifact_digest,
+        score=score,
+        decision=decision,
+        summary=(
+            f"{review.release.service} {review.release.version} supply-chain evidence is "
+            f"{decision} with policy score {score}."
+        ),
+        findings=findings,
+        required_actions=_supply_chain_actions(decision, findings),
+    )
+
+
+def render_markdown(report: RiskReport | EvidenceReport | SupplyChainReport) -> str:
+    if isinstance(report, SupplyChainReport):
+        return _render_supply_chain_markdown(report)
     if isinstance(report, EvidenceReport):
         return _render_evidence_markdown(report)
 
@@ -98,6 +125,98 @@ def render_markdown(report: RiskReport | EvidenceReport) -> str:
     lines.extend(f"1. {action}" for action in report.required_actions)
     lines.append("")
     return "\n".join(lines)
+
+
+def _render_supply_chain_markdown(report: SupplyChainReport) -> str:
+    lines = [
+        f"# Supply Chain Review: {report.service}",
+        "",
+        f"- Environment: `{report.environment}`",
+        f"- Version: `{report.version}`",
+        f"- Artifact: `{report.artifact_digest}`",
+        f"- Score: `{report.score}`",
+        f"- Decision: `{report.decision}`",
+        "",
+        "## Findings",
+        "",
+    ]
+    for finding in report.findings:
+        evidence = "; ".join(finding.evidence) if finding.evidence else "no extra evidence"
+        lines.append(
+            f"- **{finding.rule_id}** ({finding.severity}, +{finding.points}): "
+            f"{finding.message} Evidence: {evidence}."
+        )
+    lines.extend(["", "## Required Actions", ""])
+    lines.extend(f"1. {action}" for action in report.required_actions)
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _supply_chain_findings(evidence: SupplyChainEvidence) -> list[RiskFinding]:
+    checks = [
+        (not evidence.sbom_present, "missing-sbom", "high", 20, "Artifact has no SBOM."),
+        (
+            not evidence.provenance_present,
+            "missing-provenance",
+            "high",
+            20,
+            "Artifact has no build provenance attestation.",
+        ),
+        (
+            not evidence.signature_verified,
+            "unverified-signature",
+            "critical",
+            40,
+            "Artifact signature was not verified.",
+        ),
+    ]
+    findings = [
+        RiskFinding(rule_id=rule, severity=severity, points=points, message=message)
+        for failed, rule, severity, points, message in checks
+        if failed
+    ]
+    if evidence.critical_vulnerabilities:
+        findings.append(
+            RiskFinding(
+                rule_id="critical-vulnerabilities",
+                severity="critical",
+                points=50,
+                message="Artifact contains critical vulnerabilities.",
+                evidence=[f"critical={evidence.critical_vulnerabilities}"],
+            )
+        )
+    if evidence.high_vulnerabilities:
+        findings.append(
+            RiskFinding(
+                rule_id="high-vulnerabilities",
+                severity="high",
+                points=min(30, evidence.high_vulnerabilities * 10),
+                message="Artifact contains high-severity vulnerabilities.",
+                evidence=[f"high={evidence.high_vulnerabilities}"],
+            )
+        )
+    if evidence.licenses_denied:
+        findings.append(
+            RiskFinding(
+                rule_id="denied-licenses",
+                severity="high",
+                points=30,
+                message="SBOM contains dependencies with denied licenses.",
+                evidence=evidence.licenses_denied[:5],
+            )
+        )
+    return findings
+
+
+def _supply_chain_actions(decision: str, findings: list[RiskFinding]) -> list[str]:
+    if decision == "approve":
+        return ["Attach the verified SBOM, provenance, and signature evidence to the release."]
+    actions = ["Do not promote this artifact until blocking supply-chain findings are resolved."]
+    if any(f.rule_id == "unverified-signature" for f in findings):
+        actions.append("Sign the artifact and verify the signature against the trusted identity policy.")
+    if any(f.rule_id == "critical-vulnerabilities" for f in findings):
+        actions.append("Rebuild with patched dependencies and rerun the vulnerability scan.")
+    return actions
 
 
 def _render_evidence_markdown(report: EvidenceReport) -> str:

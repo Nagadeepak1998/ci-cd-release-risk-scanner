@@ -84,3 +84,30 @@ class EvidenceReport(BaseModel):
     findings: list[RiskFinding]
     readiness_checks: list[ReadinessCheck]
     required_actions: list[str]
+
+
+class SupplyChainEvidence(BaseModel):
+    artifact_digest: str
+    sbom_present: bool = False
+    provenance_present: bool = False
+    signature_verified: bool = False
+    critical_vulnerabilities: int = Field(default=0, ge=0)
+    high_vulnerabilities: int = Field(default=0, ge=0)
+    licenses_denied: list[str] = Field(default_factory=list)
+
+
+class SupplyChainReview(BaseModel):
+    release: DeployContext
+    evidence: SupplyChainEvidence
+
+
+class SupplyChainReport(BaseModel):
+    service: str
+    environment: str
+    version: str
+    artifact_digest: str
+    score: int
+    decision: str
+    summary: str
+    findings: list[RiskFinding]
+    required_actions: list[str]

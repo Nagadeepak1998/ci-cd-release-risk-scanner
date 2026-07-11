@@ -1,0 +1,17 @@
+{
+  "release": {
+    "service": "checkout-api",
+    "version": "2026.07.11-2",
+    "test_summary": {"passed": 156, "failed": 0},
+    "approvers": ["platform-lead", "service-owner"]
+  },
+  "evidence": {
+    "artifact_digest": "sha256:badc0ffee456",
+    "sbom_present": true,
+    "provenance_present": false,
+    "signature_verified": false,
+    "critical_vulnerabilities": 1,
+    "high_vulnerabilities": 2,
+    "licenses_denied": ["GPL-3.0-only"]
+  }
+}

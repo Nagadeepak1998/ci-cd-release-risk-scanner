@@ -12,18 +12,22 @@ This project builds deterministic release gates that convert CI/CD evidence into
 score and decision. The pre-release scanner returns `approve`, `manual_review`, or
 `block`; the post-deploy evidence review returns `promote`, `watch`, or `rollback`.
 Both paths include specific findings, deployment readiness checks, and required actions.
+The artifact review adds an `approve`, `manual_review`, or `block` policy decision for
+SBOM, provenance, signature, vulnerability, and license evidence.
 
 ## Implementation
 
 - Shared scanner engine in `src/release_risk_scanner/scanner.py`
 - CLI entry point for CI usage
-- FastAPI service with `/health`, `/scan`, `/evidence`, and `/metrics`
+- FastAPI service with `/health`, `/scan`, `/evidence`, `/supply-chain`, and `/metrics`
 - Prometheus metrics for scan count, evidence review count, latest scores, and latency
 - JSON and Markdown report output
 - Deployment readiness checks for rollback plans, monitoring dashboards, and canary rollout
   posture
 - Post-deploy evidence scoring for error budget burn, error-rate regression, latency
   regression, synthetic check failures, rollback events, and firing alerts
+- Supply-chain artifact policy for SBOM and provenance presence, verified signatures,
+  vulnerability severity, and denied licenses
 - Docker image and Compose configuration
 - Kubernetes deployment with probes, resource limits, and scrape annotations
 - Terraform skeleton for ECR and CloudWatch logs
@@ -46,12 +50,17 @@ The rollback evidence fixture stops promotion because the release was already bl
 post-deploy evidence shows burn-rate, error-rate, latency, synthetic, alert, and rollback
 signals.
 
+The supply-chain fixtures make the policy boundary visible: fully attested and signed
+artifacts pass, while an unverified artifact with critical vulnerabilities is blocked and
+produces a release-ticket-ready Markdown report.
+
 ## Recruiter-Relevant Signals
 
 - CI/CD release gate design
 - Production deployment risk analysis
 - Release readiness evidence that maps to real deployment review conversations
 - Post-deploy evidence review that maps to canary promotion and rollback decisions
+- Software-supply-chain security and artifact promotion policy
 - Python API and CLI implementation
 - Test automation and deterministic fixtures
 - Docker, Kubernetes, Terraform, and observability fundamentals

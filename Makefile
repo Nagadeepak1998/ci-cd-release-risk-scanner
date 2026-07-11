@@ -1,4 +1,4 @@
-.PHONY: setup lint test sample sample-markdown sample-evidence run smoke docker-build docker-run clean
+.PHONY: setup lint test sample sample-markdown sample-evidence sample-supply-chain run smoke docker-build docker-run clean
 
 setup:
 	python3 -m venv .venv
@@ -22,11 +22,15 @@ sample-evidence:
 	PYTHONPATH=src .venv/bin/python -m release_risk_scanner.cli --evidence tests/fixtures/healthy_evidence.json --output reports/healthy-evidence.json
 	PYTHONPATH=src .venv/bin/python -m release_risk_scanner.cli --evidence tests/fixtures/rollback_evidence.json --format markdown --output reports/rollback-evidence.md --fail-on rollback || test $$? -eq 2
 
+sample-supply-chain:
+	PYTHONPATH=src .venv/bin/python -m release_risk_scanner.cli --supply-chain tests/fixtures/supply_chain_safe.json --output reports/supply-chain-safe.json
+	PYTHONPATH=src .venv/bin/python -m release_risk_scanner.cli --supply-chain tests/fixtures/supply_chain_blocked.json --format markdown --output reports/supply-chain-blocked.md || test $$? -eq 2
+
 run:
 	.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8080
 
 smoke:
-	.venv/bin/python scripts/smoke_api.py
+	PYTHONPATH=src .venv/bin/python scripts/smoke_api.py
 
 docker-build:
 	docker build -f infra/docker/Dockerfile -t ci-cd-release-risk-scanner:local .

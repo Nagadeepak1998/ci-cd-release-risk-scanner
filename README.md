@@ -7,7 +7,9 @@ The scanner turns concrete CI/CD evidence into release decisions: pre-deploy ris
 changed files, test failures, coverage delta, dependency updates, recent incidents,
 rollback history, change size, approvals, rollback plans, monitoring dashboards, and
 canary posture, plus post-deploy evidence from burn rate, error rate, latency, alerts,
-synthetics, and rollback events. It ships as a Python CLI and FastAPI service with
+synthetics, and rollback events. A software-supply-chain gate also checks SBOM,
+provenance, artifact signatures, vulnerabilities, and denied licenses. It ships as a
+Python CLI and FastAPI service with
 Prometheus metrics, Docker packaging, Kubernetes manifests, Terraform scaffolding, tests,
 sample reports, and recruiter-readable documentation.
 
@@ -38,6 +40,11 @@ flowchart LR
     N --> P[FastAPI /evidence]
     G --> H[Prometheus /metrics]
     P --> H
+    A --> Q[Supply-chain evidence]
+    Q --> R[SBOM/provenance/signature policy]
+    R --> F
+    R --> S[FastAPI /supply-chain]
+    S --> H
     G --> I[Docker image]
     I --> J[Kubernetes manifests]
     I --> K[AWS ECR and CloudWatch Terraform skeleton]
@@ -50,6 +57,7 @@ flowchart LR
 - FastAPI and CLI parity through one shared scanner
 - Deployment readiness scoring for rollback, monitoring, and canary evidence
 - Post-deploy release evidence review with promote, watch, and rollback decisions
+- Software-supply-chain policy for SBOM, provenance, signatures, vulnerabilities, and licenses
 - Prometheus counters, gauges, and latency histogram
 - Docker, Kubernetes, Terraform, and GitHub Actions template coverage
 - Practical DevOps judgment around production approvals, migrations, and rollback risk
@@ -73,6 +81,7 @@ make test
 make sample
 make sample-markdown
 make sample-evidence
+make sample-supply-chain
 ```
 
 The risky sample exits with code `2` because it correctly blocks the release. The Makefile
@@ -107,6 +116,18 @@ PYTHONPATH=src python -m release_risk_scanner.cli \
 The healthy evidence sample returns `promote`; the rollback evidence sample returns
 `rollback` and exits with code `2` when `--fail-on rollback` is used.
 
+Supply-chain evidence mode:
+
+```bash
+PYTHONPATH=src python -m release_risk_scanner.cli \
+  --supply-chain tests/fixtures/supply_chain_blocked.json \
+  --format markdown \
+  --output reports/supply-chain-blocked.md
+```
+
+The blocked artifact fixture proves the release gate rejects an unverified signature,
+missing provenance, critical/high vulnerabilities, and a denied license.
+
 ## Run The API
 
 ```bash
@@ -133,6 +154,14 @@ Evidence review:
 curl -X POST http://localhost:8080/evidence \
   -H "Content-Type: application/json" \
   --data @tests/fixtures/rollback_evidence.json
+```
+
+Supply-chain review:
+
+```bash
+curl -X POST http://localhost:8080/supply-chain \
+  -H "Content-Type: application/json" \
+  --data @tests/fixtures/supply_chain_blocked.json
 ```
 
 Metrics:
@@ -192,5 +221,7 @@ gh auth refresh -h github.com -s workflow
 
 - The scoring engine is deterministic and intentionally explainable; it is not a live
   connection to GitHub Actions, Jenkins, Jira, PagerDuty, or Datadog.
+- Supply-chain inputs are normalized scanner evidence; this project does not invoke
+  Syft, Grype, Trivy, Cosign, or a transparency log directly.
 - Terraform is a skeleton for deployability, not a full production environment.
 - The sample rules should be tuned to a real organization before use in production.

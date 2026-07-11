@@ -1,7 +1,12 @@
 from pathlib import Path
 
-from release_risk_scanner.io import load_context, load_evidence_bundle
-from release_risk_scanner.scanner import evaluate_release_evidence, render_markdown, scan_release
+from release_risk_scanner.io import load_context, load_evidence_bundle, load_supply_chain_review
+from release_risk_scanner.scanner import (
+    evaluate_release_evidence,
+    evaluate_supply_chain,
+    render_markdown,
+    scan_release,
+)
 
 
 def test_risky_release_blocks_deploy() -> None:
@@ -58,3 +63,22 @@ def test_evidence_markdown_contains_post_deploy_decision() -> None:
     assert "# Release Evidence Report: checkout-api" in markdown
     assert "Decision: `rollback`" in markdown
     assert "error-budget-burn" in markdown
+
+
+def test_verified_supply_chain_approves_artifact() -> None:
+    review = load_supply_chain_review(Path("tests/fixtures/supply_chain_safe.json"))
+    report = evaluate_supply_chain(review)
+
+    assert report.decision == "approve"
+    assert report.score == 0
+
+
+def test_unsafe_supply_chain_blocks_artifact() -> None:
+    review = load_supply_chain_review(Path("tests/fixtures/supply_chain_blocked.json"))
+    report = evaluate_supply_chain(review)
+
+    assert report.decision == "block"
+    assert report.score == 100
+    assert any(finding.rule_id == "unverified-signature" for finding in report.findings)
+    assert any(finding.rule_id == "critical-vulnerabilities" for finding in report.findings)
+    assert "# Supply Chain Review: checkout-api" in render_markdown(report)

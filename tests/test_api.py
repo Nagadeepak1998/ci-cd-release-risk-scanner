@@ -26,6 +26,16 @@ def test_api_evidence_returns_rollback_decision() -> None:
     assert response.json()["decision"] == "rollback"
 
 
+def test_api_supply_chain_blocks_unverified_artifact() -> None:
+    client = TestClient(app)
+    payload = json.loads(Path("tests/fixtures/supply_chain_blocked.json").read_text())
+
+    response = client.post("/supply-chain", json=payload)
+
+    assert response.status_code == 200
+    assert response.json()["decision"] == "block"
+
+
 def test_metrics_endpoint() -> None:
     client = TestClient(app)
 

@@ -6,4 +6,4 @@ __pycache__/
 reports/*.json
 reports/*.md
 !reports/.gitkeep
-
+!reports/supply-chain-blocked.md
