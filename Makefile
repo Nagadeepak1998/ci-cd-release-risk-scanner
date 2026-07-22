@@ -1,4 +1,4 @@
-.PHONY: setup lint test sample sample-markdown sample-evidence sample-supply-chain run smoke docker-build docker-run clean
+.PHONY: setup lint test sample sample-markdown sample-evidence sample-supply-chain sample-change-advisory run smoke docker-build docker-run clean
 
 setup:
 	python3 -m venv .venv
@@ -25,6 +25,10 @@ sample-evidence:
 sample-supply-chain:
 	PYTHONPATH=src .venv/bin/python -m release_risk_scanner.cli --supply-chain tests/fixtures/supply_chain_safe.json --output reports/supply-chain-safe.json
 	PYTHONPATH=src .venv/bin/python -m release_risk_scanner.cli --supply-chain tests/fixtures/supply_chain_blocked.json --format markdown --output reports/supply-chain-blocked.md || test $$? -eq 2
+
+sample-change-advisory:
+	PYTHONPATH=src .venv/bin/python -m release_risk_scanner.cli --change-advisory tests/fixtures/change_advisory_safe.json --output reports/change-advisory-safe.json
+	PYTHONPATH=src .venv/bin/python -m release_risk_scanner.cli --change-advisory tests/fixtures/change_advisory_blocked.json --format markdown --output reports/change-advisory-blocked.md || test $$? -eq 2
 
 run:
 	.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8080

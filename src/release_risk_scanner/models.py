@@ -111,3 +111,39 @@ class SupplyChainReport(BaseModel):
     summary: str
     findings: list[RiskFinding]
     required_actions: list[str]
+
+
+class ChangeAdvisoryEvidence(BaseModel):
+    change_ticket: str
+    freeze_window_active: bool = False
+    emergency_change: bool = False
+    cab_required: bool = True
+    cab_approved: bool = False
+    business_owner_approved: bool = False
+    risk_accepted_by: str | None = None
+    on_call_engineer: str | None = None
+    incident_commander: str | None = None
+    rollback_rehearsed: bool = False
+    stakeholder_notice_sent: bool = False
+    maintenance_window_minutes: int = Field(default=60, ge=0)
+    customer_impact: str = "unknown"
+    observability_dashboard_url: str | None = None
+    runbook_url: str | None = None
+    linked_incidents: list[str] = Field(default_factory=list)
+
+
+class ChangeAdvisoryReview(BaseModel):
+    release: DeployContext
+    advisory: ChangeAdvisoryEvidence
+
+
+class ChangeAdvisoryReport(BaseModel):
+    service: str
+    environment: str
+    version: str
+    change_ticket: str
+    score: int
+    decision: str
+    summary: str
+    findings: list[RiskFinding]
+    required_actions: list[str]

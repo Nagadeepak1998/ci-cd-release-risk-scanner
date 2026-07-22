@@ -14,13 +14,18 @@ score and decision. The pre-release scanner returns `approve`, `manual_review`, 
 Both paths include specific findings, deployment readiness checks, and required actions.
 The artifact review adds an `approve`, `manual_review`, or `block` policy decision for
 SBOM, provenance, signature, vulnerability, and license evidence.
+The change-advisory review adds the same decision model for production change readiness:
+freeze windows, CAB approval, business approval, support coverage, rollback rehearsal,
+stakeholder notice, runbook, and observability evidence.
 
 ## Implementation
 
 - Shared scanner engine in `src/release_risk_scanner/scanner.py`
 - CLI entry point for CI usage
-- FastAPI service with `/health`, `/scan`, `/evidence`, `/supply-chain`, and `/metrics`
-- Prometheus metrics for scan count, evidence review count, latest scores, and latency
+- FastAPI service with `/health`, `/scan`, `/evidence`, `/supply-chain`,
+  `/change-advisory`, and `/metrics`
+- Prometheus metrics for scan count, evidence review count, advisory review count, latest
+  scores, and latency
 - JSON and Markdown report output
 - Deployment readiness checks for rollback plans, monitoring dashboards, and canary rollout
   posture
@@ -28,6 +33,9 @@ SBOM, provenance, signature, vulnerability, and license evidence.
   regression, synthetic check failures, rollback events, and firing alerts
 - Supply-chain artifact policy for SBOM and provenance presence, verified signatures,
   vulnerability severity, and denied licenses
+- Change-advisory policy for release-ticket readiness, freeze-window overrides, CAB and
+  business approval, support coverage, rollback rehearsal, stakeholder notice, maintenance
+  windows, linked incidents, runbooks, and dashboards
 - Docker image and Compose configuration
 - Kubernetes deployment with probes, resource limits, and scrape annotations
 - Terraform skeleton for ECR and CloudWatch logs
@@ -54,6 +62,12 @@ The supply-chain fixtures make the policy boundary visible: fully attested and s
 artifacts pass, while an unverified artifact with critical vulnerabilities is blocked and
 produces a release-ticket-ready Markdown report.
 
+The change-advisory fixtures add a production-support boundary: a clean catalog release
+passes with approvals, support coverage, rollback rehearsal, and observability references;
+the checkout release blocks because it is inside a freeze window and lacks CAB approval,
+business approval, risk acceptance, support roles, rollback rehearsal, stakeholder notice,
+runbook, and dashboard evidence.
+
 ## Recruiter-Relevant Signals
 
 - CI/CD release gate design
@@ -61,6 +75,7 @@ produces a release-ticket-ready Markdown report.
 - Release readiness evidence that maps to real deployment review conversations
 - Post-deploy evidence review that maps to canary promotion and rollback decisions
 - Software-supply-chain security and artifact promotion policy
+- Change-management readiness review for production support credibility
 - Python API and CLI implementation
 - Test automation and deterministic fixtures
 - Docker, Kubernetes, Terraform, and observability fundamentals

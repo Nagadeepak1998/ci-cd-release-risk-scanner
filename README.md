@@ -8,10 +8,12 @@ changed files, test failures, coverage delta, dependency updates, recent inciden
 rollback history, change size, approvals, rollback plans, monitoring dashboards, and
 canary posture, plus post-deploy evidence from burn rate, error rate, latency, alerts,
 synthetics, and rollback events. A software-supply-chain gate also checks SBOM,
-provenance, artifact signatures, vulnerabilities, and denied licenses. It ships as a
-Python CLI and FastAPI service with
-Prometheus metrics, Docker packaging, Kubernetes manifests, Terraform scaffolding, tests,
-sample reports, and recruiter-readable documentation.
+provenance, artifact signatures, vulnerabilities, and denied licenses. A change-advisory
+gate reviews freeze windows, CAB approval, rollback rehearsal, stakeholder notice,
+support coverage, runbooks, and observability before a production change begins. It ships
+as a Python CLI and FastAPI service with Prometheus metrics, Docker packaging, Kubernetes
+manifests, Terraform scaffolding, tests, sample reports, and recruiter-readable
+documentation.
 
 ## Problem
 
@@ -45,6 +47,11 @@ flowchart LR
     R --> F
     R --> S[FastAPI /supply-chain]
     S --> H
+    A --> T[Change advisory evidence]
+    T --> U[Freeze/CAB/support coverage gate]
+    U --> F
+    U --> V[FastAPI /change-advisory]
+    V --> H
     G --> I[Docker image]
     I --> J[Kubernetes manifests]
     I --> K[AWS ECR and CloudWatch Terraform skeleton]
@@ -58,6 +65,7 @@ flowchart LR
 - Deployment readiness scoring for rollback, monitoring, and canary evidence
 - Post-deploy release evidence review with promote, watch, and rollback decisions
 - Software-supply-chain policy for SBOM, provenance, signatures, vulnerabilities, and licenses
+- Change-advisory review for freeze windows, CAB approval, support coverage, and rollback rehearsal
 - Prometheus counters, gauges, and latency histogram
 - Docker, Kubernetes, Terraform, and GitHub Actions template coverage
 - Practical DevOps judgment around production approvals, migrations, and rollback risk
@@ -82,6 +90,7 @@ make sample
 make sample-markdown
 make sample-evidence
 make sample-supply-chain
+make sample-change-advisory
 ```
 
 The risky sample exits with code `2` because it correctly blocks the release. The Makefile
@@ -128,6 +137,19 @@ PYTHONPATH=src python -m release_risk_scanner.cli \
 The blocked artifact fixture proves the release gate rejects an unverified signature,
 missing provenance, critical/high vulnerabilities, and a denied license.
 
+Change-advisory mode:
+
+```bash
+PYTHONPATH=src python -m release_risk_scanner.cli \
+  --change-advisory tests/fixtures/change_advisory_blocked.json \
+  --format markdown \
+  --output reports/change-advisory-blocked.md
+```
+
+The blocked advisory fixture proves the gate rejects a release that enters a freeze window
+without emergency approval, CAB approval, rollback rehearsal, stakeholder notice, support
+coverage, runbook, or observability evidence.
+
 ## Run The API
 
 ```bash
@@ -162,6 +184,14 @@ Supply-chain review:
 curl -X POST http://localhost:8080/supply-chain \
   -H "Content-Type: application/json" \
   --data @tests/fixtures/supply_chain_blocked.json
+```
+
+Change advisory review:
+
+```bash
+curl -X POST http://localhost:8080/change-advisory \
+  -H "Content-Type: application/json" \
+  --data @tests/fixtures/change_advisory_blocked.json
 ```
 
 Metrics:

@@ -76,3 +76,28 @@ def test_cli_writes_supply_chain_report_and_blocks(tmp_path: Path) -> None:
     assert result.returncode == 2
     assert "block: checkout-api" in result.stdout
     assert "Supply Chain Review" in output.read_text()
+
+
+def test_cli_writes_change_advisory_report_and_blocks(tmp_path: Path) -> None:
+    output = tmp_path / "change-advisory.md"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "release_risk_scanner.cli",
+            "--change-advisory",
+            "tests/fixtures/change_advisory_blocked.json",
+            "--format",
+            "markdown",
+            "--output",
+            str(output),
+        ],
+        check=False,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert "block: checkout-api" in result.stdout
+    assert "Change Advisory Review" in output.read_text()

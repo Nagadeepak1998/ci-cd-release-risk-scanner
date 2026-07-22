@@ -7,3 +7,5 @@ reports/*.json
 reports/*.md
 !reports/.gitkeep
 !reports/supply-chain-blocked.md
+!reports/change-advisory-safe.json
+!reports/change-advisory-blocked.md

@@ -1,0 +1,13 @@
+{
+  "change_ticket": "CHG-2026-1042",
+  "decision": "approve",
+  "environment": "production",
+  "findings": [],
+  "required_actions": [
+    "Attach the advisory review, approval evidence, runbook, and dashboard to the release."
+  ],
+  "score": 0,
+  "service": "catalog-api",
+  "summary": "catalog-api 2026.06.26-2 change advisory CHG-2026-1042 is approve with advisory score 0.",
+  "version": "2026.06.26-2"
+}

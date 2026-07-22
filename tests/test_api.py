@@ -36,6 +36,16 @@ def test_api_supply_chain_blocks_unverified_artifact() -> None:
     assert response.json()["decision"] == "block"
 
 
+def test_api_change_advisory_blocks_freeze_window_release() -> None:
+    client = TestClient(app)
+    payload = json.loads(Path("tests/fixtures/change_advisory_blocked.json").read_text())
+
+    response = client.post("/change-advisory", json=payload)
+
+    assert response.status_code == 200
+    assert response.json()["decision"] == "block"
+
+
 def test_metrics_endpoint() -> None:
     client = TestClient(app)
 

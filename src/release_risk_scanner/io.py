@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 
 from release_risk_scanner.models import (
+    ChangeAdvisoryReport,
+    ChangeAdvisoryReview,
     DeployContext,
     EvidenceReport,
     ReleaseEvidenceBundle,
@@ -26,8 +28,14 @@ def load_supply_chain_review(path: Path) -> SupplyChainReview:
     return SupplyChainReview.model_validate_json(path.read_text(encoding="utf-8"))
 
 
+def load_change_advisory_review(path: Path) -> ChangeAdvisoryReview:
+    return ChangeAdvisoryReview.model_validate_json(path.read_text(encoding="utf-8"))
+
+
 def write_report(
-    path: Path, report: RiskReport | EvidenceReport | SupplyChainReport, output_format: str
+    path: Path,
+    report: RiskReport | EvidenceReport | SupplyChainReport | ChangeAdvisoryReport,
+    output_format: str,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if output_format == "markdown":

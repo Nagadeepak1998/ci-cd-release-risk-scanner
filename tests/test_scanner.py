@@ -1,7 +1,13 @@
 from pathlib import Path
 
-from release_risk_scanner.io import load_context, load_evidence_bundle, load_supply_chain_review
+from release_risk_scanner.io import (
+    load_change_advisory_review,
+    load_context,
+    load_evidence_bundle,
+    load_supply_chain_review,
+)
 from release_risk_scanner.scanner import (
+    evaluate_change_advisory,
     evaluate_release_evidence,
     evaluate_supply_chain,
     render_markdown,
@@ -82,3 +88,22 @@ def test_unsafe_supply_chain_blocks_artifact() -> None:
     assert any(finding.rule_id == "unverified-signature" for finding in report.findings)
     assert any(finding.rule_id == "critical-vulnerabilities" for finding in report.findings)
     assert "# Supply Chain Review: checkout-api" in render_markdown(report)
+
+
+def test_safe_change_advisory_approves_change() -> None:
+    review = load_change_advisory_review(Path("tests/fixtures/change_advisory_safe.json"))
+    report = evaluate_change_advisory(review)
+
+    assert report.decision == "approve"
+    assert report.score == 0
+
+
+def test_blocked_change_advisory_stops_freeze_window_release() -> None:
+    review = load_change_advisory_review(Path("tests/fixtures/change_advisory_blocked.json"))
+    report = evaluate_change_advisory(review)
+
+    assert report.decision == "block"
+    assert report.score == 100
+    assert any(finding.rule_id == "freeze-window-active" for finding in report.findings)
+    assert any(finding.rule_id == "missing-support-coverage" for finding in report.findings)
+    assert "# Change Advisory Review: checkout-api" in render_markdown(report)

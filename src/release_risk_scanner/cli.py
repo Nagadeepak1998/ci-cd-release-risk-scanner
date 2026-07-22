@@ -5,11 +5,17 @@ from pathlib import Path
 
 from release_risk_scanner.io import (
     load_context,
+    load_change_advisory_review,
     load_evidence_bundle,
     load_supply_chain_review,
     write_report,
 )
-from release_risk_scanner.scanner import evaluate_release_evidence, evaluate_supply_chain, scan_release
+from release_risk_scanner.scanner import (
+    evaluate_change_advisory,
+    evaluate_release_evidence,
+    evaluate_supply_chain,
+    scan_release,
+)
 
 
 def main() -> int:
@@ -17,6 +23,7 @@ def main() -> int:
     parser.add_argument("context", type=Path, nargs="?", help="Release context JSON")
     parser.add_argument("--evidence", type=Path, help="Release plus post-deploy evidence JSON")
     parser.add_argument("--supply-chain", type=Path, help="Release artifact supply-chain evidence JSON")
+    parser.add_argument("--change-advisory", type=Path, help="Release plus change advisory evidence JSON")
     parser.add_argument("--output", type=Path, default=Path("reports/release-risk.json"))
     parser.add_argument("--format", choices=["json", "markdown"], default="json")
     parser.add_argument(
@@ -26,7 +33,9 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    if args.supply_chain:
+    if args.change_advisory:
+        report = evaluate_change_advisory(load_change_advisory_review(args.change_advisory))
+    elif args.supply_chain:
         report = evaluate_supply_chain(load_supply_chain_review(args.supply_chain))
     elif args.evidence:
         report = evaluate_release_evidence(load_evidence_bundle(args.evidence))

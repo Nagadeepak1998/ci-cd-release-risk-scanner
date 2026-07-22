@@ -3,6 +3,9 @@ from __future__ import annotations
 from pathlib import PurePosixPath
 
 from release_risk_scanner.models import (
+    ChangeAdvisoryEvidence,
+    ChangeAdvisoryReport,
+    ChangeAdvisoryReview,
     DeployContext,
     EvidenceReport,
     PostDeployEvidence,
@@ -91,7 +94,37 @@ def evaluate_supply_chain(review: SupplyChainReview) -> SupplyChainReport:
     )
 
 
-def render_markdown(report: RiskReport | EvidenceReport | SupplyChainReport) -> str:
+def evaluate_change_advisory(review: ChangeAdvisoryReview) -> ChangeAdvisoryReport:
+    pre_release = scan_release(review.release)
+    findings = [
+        *_pre_release_advisory_findings(pre_release),
+        *_change_advisory_findings(review.advisory),
+    ]
+    score = min(100, sum(finding.points for finding in findings))
+    decision = _decision(score)
+    if review.advisory.freeze_window_active and not review.advisory.emergency_change:
+        decision = "block"
+    return ChangeAdvisoryReport(
+        service=review.release.service,
+        environment=review.release.environment,
+        version=review.release.version,
+        change_ticket=review.advisory.change_ticket,
+        score=score,
+        decision=decision,
+        summary=(
+            f"{review.release.service} {review.release.version} change advisory "
+            f"{review.advisory.change_ticket} is {decision} with advisory score {score}."
+        ),
+        findings=findings,
+        required_actions=_change_advisory_actions(decision, findings),
+    )
+
+
+def render_markdown(
+    report: RiskReport | EvidenceReport | SupplyChainReport | ChangeAdvisoryReport,
+) -> str:
+    if isinstance(report, ChangeAdvisoryReport):
+        return _render_change_advisory_markdown(report)
     if isinstance(report, SupplyChainReport):
         return _render_supply_chain_markdown(report)
     if isinstance(report, EvidenceReport):
@@ -150,6 +183,162 @@ def _render_supply_chain_markdown(report: SupplyChainReport) -> str:
     lines.extend(f"1. {action}" for action in report.required_actions)
     lines.append("")
     return "\n".join(lines)
+
+
+def _render_change_advisory_markdown(report: ChangeAdvisoryReport) -> str:
+    lines = [
+        f"# Change Advisory Review: {report.service}",
+        "",
+        f"- Environment: `{report.environment}`",
+        f"- Version: `{report.version}`",
+        f"- Change ticket: `{report.change_ticket}`",
+        f"- Score: `{report.score}`",
+        f"- Decision: `{report.decision}`",
+        "",
+        "## Summary",
+        "",
+        report.summary,
+        "",
+        "## Findings",
+        "",
+    ]
+    for finding in report.findings:
+        evidence = "; ".join(finding.evidence) if finding.evidence else "no extra evidence"
+        lines.append(
+            f"- **{finding.rule_id}** ({finding.severity}, +{finding.points}): "
+            f"{finding.message} Evidence: {evidence}."
+        )
+    lines.extend(["", "## Required Actions", ""])
+    lines.extend(f"1. {action}" for action in report.required_actions)
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _change_advisory_findings(advisory: ChangeAdvisoryEvidence) -> list[RiskFinding]:
+    findings: list[RiskFinding] = []
+    if advisory.freeze_window_active and not advisory.emergency_change:
+        findings.append(
+            RiskFinding(
+                rule_id="freeze-window-active",
+                severity="critical",
+                points=45,
+                message="Change is scheduled during an active freeze window without emergency override.",
+                evidence=[advisory.change_ticket],
+            )
+        )
+    if advisory.cab_required and not advisory.cab_approved:
+        findings.append(
+            RiskFinding(
+                rule_id="missing-cab-approval",
+                severity="high",
+                points=20,
+                message="CAB approval is required but not recorded.",
+                evidence=[advisory.change_ticket],
+            )
+        )
+    if not advisory.business_owner_approved:
+        findings.append(
+            RiskFinding(
+                rule_id="missing-business-approval",
+                severity="medium",
+                points=12,
+                message="Business owner approval is missing.",
+            )
+        )
+    if advisory.customer_impact.lower() in {"high", "critical"} and not advisory.risk_accepted_by:
+        findings.append(
+            RiskFinding(
+                rule_id="missing-risk-acceptance",
+                severity="high",
+                points=18,
+                message="High-impact change has no named risk acceptance owner.",
+                evidence=[f"customer_impact={advisory.customer_impact}"],
+            )
+        )
+    if not advisory.on_call_engineer or not advisory.incident_commander:
+        findings.append(
+            RiskFinding(
+                rule_id="missing-support-coverage",
+                severity="high",
+                points=18,
+                message="On-call engineer and incident commander must both be named.",
+            )
+        )
+    if not advisory.rollback_rehearsed:
+        findings.append(
+            RiskFinding(
+                rule_id="rollback-not-rehearsed",
+                severity="medium",
+                points=12,
+                message="Rollback has not been rehearsed for this release.",
+            )
+        )
+    if not advisory.stakeholder_notice_sent:
+        findings.append(
+            RiskFinding(
+                rule_id="missing-stakeholder-notice",
+                severity="medium",
+                points=10,
+                message="Stakeholder notification has not been sent.",
+            )
+        )
+    if advisory.maintenance_window_minutes < 30:
+        findings.append(
+            RiskFinding(
+                rule_id="short-maintenance-window",
+                severity="medium",
+                points=10,
+                message="Maintenance window is too short for deploy, validation, and rollback.",
+                evidence=[f"minutes={advisory.maintenance_window_minutes}"],
+            )
+        )
+    if not advisory.observability_dashboard_url or not advisory.runbook_url:
+        findings.append(
+            RiskFinding(
+                rule_id="missing-observability-or-runbook",
+                severity="medium",
+                points=12,
+                message="Change lacks an observability dashboard or runbook reference.",
+            )
+        )
+    if len(advisory.linked_incidents) >= 2:
+        findings.append(
+            RiskFinding(
+                rule_id="recent-related-incidents",
+                severity="medium",
+                points=10,
+                message="Change is linked to multiple recent incidents.",
+                evidence=advisory.linked_incidents[:5],
+            )
+        )
+    return findings
+
+
+def _pre_release_advisory_findings(report: RiskReport) -> list[RiskFinding]:
+    if report.decision == "approve":
+        return []
+    return [
+        RiskFinding(
+            rule_id="pre-release-gate-not-approved",
+            severity="high",
+            points=20 if report.decision == "manual_review" else 35,
+            message="Pre-release risk gate is not approved.",
+            evidence=[f"pre_release_decision={report.decision}", f"pre_release_score={report.score}"],
+        )
+    ]
+
+
+def _change_advisory_actions(decision: str, findings: list[RiskFinding]) -> list[str]:
+    if decision == "approve":
+        return ["Attach the advisory review, approval evidence, runbook, and dashboard to the release."]
+    actions = ["Do not start the change until advisory findings are resolved or explicitly accepted."]
+    if any(f.rule_id == "freeze-window-active" for f in findings):
+        actions.append("Move the deployment outside the freeze window or record emergency approval.")
+    if any(f.rule_id == "missing-support-coverage" for f in findings):
+        actions.append("Name the on-call engineer and incident commander before execution.")
+    if any(f.rule_id == "rollback-not-rehearsed" for f in findings):
+        actions.append("Run and record a rollback rehearsal before the maintenance window.")
+    return actions
 
 
 def _supply_chain_findings(evidence: SupplyChainEvidence) -> list[RiskFinding]:

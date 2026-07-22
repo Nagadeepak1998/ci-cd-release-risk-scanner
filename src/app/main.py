@@ -4,14 +4,18 @@ from fastapi import FastAPI, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from app.metrics import (
+    CHANGE_ADVISORY_REVIEWS,
     EVIDENCE_REVIEWS,
     LATENCY,
+    LATEST_CHANGE_ADVISORY_SCORE,
     LATEST_EVIDENCE_SCORE,
     LATEST_SCORE,
     SCANS,
     SUPPLY_CHAIN_REVIEWS,
 )
 from release_risk_scanner.models import (
+    ChangeAdvisoryReport,
+    ChangeAdvisoryReview,
     DeployContext,
     EvidenceReport,
     ReleaseEvidenceBundle,
@@ -19,7 +23,12 @@ from release_risk_scanner.models import (
     SupplyChainReport,
     SupplyChainReview,
 )
-from release_risk_scanner.scanner import evaluate_release_evidence, evaluate_supply_chain, scan_release
+from release_risk_scanner.scanner import (
+    evaluate_change_advisory,
+    evaluate_release_evidence,
+    evaluate_supply_chain,
+    scan_release,
+)
 
 app = FastAPI(
     title="CI/CD Release Risk Scanner",
@@ -56,6 +65,15 @@ def supply_chain(review: SupplyChainReview) -> SupplyChainReport:
     with LATENCY.time():
         report = evaluate_supply_chain(review)
     SUPPLY_CHAIN_REVIEWS.labels(decision=report.decision).inc()
+    return report
+
+
+@app.post("/change-advisory", response_model=ChangeAdvisoryReport)
+def change_advisory(review: ChangeAdvisoryReview) -> ChangeAdvisoryReport:
+    with LATENCY.time():
+        report = evaluate_change_advisory(review)
+    CHANGE_ADVISORY_REVIEWS.labels(decision=report.decision).inc()
+    LATEST_CHANGE_ADVISORY_SCORE.set(report.score)
     return report
 
 
